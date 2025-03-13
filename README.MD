@@ -1,4 +1,4 @@
-# Merge Files Web App 🚀
+# Merge Files Flask Web App  🚀
 
 ## Description
 
