@@ -27,3 +27,4 @@ To set up the app:
     ```bash
     python3 app.py
     ```
+## Thank you beloved creatures 🐼🌸
