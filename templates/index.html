@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Merger</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .custom-file-upload {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .custom-file-upload:hover {
+            border-color: #007bff;
+        }
+        .selected-file {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #28a745;
+        }
+        #columnSelect {
+            min-height: 150px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <h1 class="text-center mb-5">File Merger</h1>
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-body">
+                        <form id="mergeForm">
+                            <div class="mb-4">
+                                <label class="form-label">First File</label>
+                                <div class="custom-file-upload" id="file1Drop">
+                                    <input type="file" id="file1" name="file1" accept=".csv,.xlsx" class="d-none">
+                                    <div>
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        Drop your first file here or click to browse
+                                    </div>
+                                    <div class="selected-file" id="file1Name"></div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Second File</label>
+                                <div class="custom-file-upload" id="file2Drop">
+                                    <input type="file" id="file2" name="file2" accept=".csv,.xlsx" class="d-none">
+                                    <div>
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        Drop your second file here or click to browse
+                                    </div>
+                                    <div class="selected-file" id="file2Name"></div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Select Columns to Merge On</label>
+                                <select multiple class="form-select" id="columnSelect" name="columns[]" size="5">
+                                    <option disabled>Upload both files to see common columns</option>
+                                </select>
+                                <div class="form-text">Hold Ctrl/Cmd to select multiple columns</div>
+                            </div>
+
+                            <div class="text-center">
+                                <button type="submit" class="btn btn-primary btn-lg" id="mergeButton" disabled>
+                                    Merge Files
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function setupFileUpload(fileInput, dropZone, nameDisplay) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#007bff';
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.borderColor = '#ccc';
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#ccc';
+                
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(fileInput);
+                }
+            });
+            
+            fileInput.addEventListener('change', () => handleFileSelect(fileInput));
+            
+            function handleFileSelect(input) {
+                const file = input.files[0];
+                if (file) {
+                    nameDisplay.textContent = file.name;
+                    checkFiles();
+                }
+            }
+        }
+
+        function checkFiles() {
+            const file1 = document.getElementById('file1').files[0];
+            const file2 = document.getElementById('file2').files[0];
+            
+            if (file1 && file2) {
+                // Get common columns
+                const formData = new FormData();
+                formData.append('file1', file1);
+                formData.append('file2', file2);
+                
+                fetch('/get_common_columns', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const columnSelect = document.getElementById('columnSelect');
+                    columnSelect.innerHTML = '';
+                    
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    data.columns.forEach(column => {
+                        const option = document.createElement('option');
+                        option.value = column;
+                        option.textContent = column;
+                        columnSelect.appendChild(option);
+                    });
+                    
+                    document.getElementById('mergeButton').disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error getting common columns');
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFileUpload(
+                document.getElementById('file1'),
+                document.getElementById('file1Drop'),
+                document.getElementById('file1Name')
+            );
+            
+            setupFileUpload(
+                document.getElementById('file2'),
+                document.getElementById('file2Drop'),
+                document.getElementById('file2Name')
+            );
+            
+            document.getElementById('mergeForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData();
+                formData.append('file1', document.getElementById('file1').files[0]);
+                formData.append('file2', document.getElementById('file2').files[0]);
+                
+                const selectedColumns = Array.from(document.getElementById('columnSelect').selectedOptions)
+                    .map(option => option.value);
+                    
+                if (selectedColumns.length === 0) {
+                    alert('Please select at least one column to merge on');
+                    return;
+                }
+                
+                selectedColumns.forEach(column => {
+                    formData.append('columns[]', column);
+                });
+                
+                fetch('/merge_files', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Error merging files');
+                        });
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'merged_output.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert(error.message);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
