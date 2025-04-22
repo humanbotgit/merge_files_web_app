@@ -64,6 +64,10 @@ def merge_files():
             if column not in df1.columns or column not in df2.columns:
                 return jsonify({'error': f'Column "{column}" not found in both files'}), 400
         
+        for column in merge_columns:
+            df1[column] = df1[column].astype(str).str.strip().str.capitalize()
+            df2[column] = df2[column].astype(str).str.strip().str.capitalize()
+
         merged_df = pd.merge(df1, df2, on=merge_columns, how='inner')
         
         output = io.BytesIO()
